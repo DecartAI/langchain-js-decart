@@ -33,8 +33,7 @@ const DecartImageInputSchema = z.object({
   resolution: z
     .enum(["480p", "720p"])
     .optional()
-    .default("720p")
-    .describe("Output resolution"),
+    .describe("Output resolution (default: 720p)"),
   orientation: z
     .enum(["landscape", "portrait"])
     .optional()
@@ -50,8 +49,7 @@ const DecartImageInputSchema = z.object({
   enhancePrompt: z
     .boolean()
     .optional()
-    .default(true)
-    .describe("Whether to auto-enhance the prompt"),
+    .describe("Whether to auto-enhance the prompt (default: true)"),
 });
 
 type DecartImageInput = z.infer<typeof DecartImageInputSchema>;
@@ -79,7 +77,7 @@ type DecartImageInput = z.infer<typeof DecartImageInputSchema>;
  * });
  * ```
  */
-export class DecartImageTool extends StructuredTool<typeof DecartImageInputSchema> {
+export class DecartImageTool extends StructuredTool {
   static lc_name() {
     return "DecartImageTool";
   }
@@ -120,7 +118,9 @@ export class DecartImageTool extends StructuredTool<typeof DecartImageInputSchem
     input: DecartImageInput,
     _runManager?: CallbackManagerForToolRun
   ): Promise<string> {
-    const { prompt, resolution, orientation, seed, imageUrl, enhancePrompt } = input;
+    const { prompt, orientation, seed, imageUrl } = input;
+    const resolution = input.resolution ?? "720p";
+    const enhancePrompt = input.enhancePrompt ?? true;
 
     try {
       // Choose endpoint based on whether we have source image
