@@ -44,6 +44,7 @@ const DecartImageInputSchema = z.object({
     .describe("Random seed for reproducible results"),
   imageUrl: z
     .string()
+    .url("imageUrl must be a valid URL")
     .optional()
     .describe("Source image URL for image-to-image editing. If provided, uses lucy-pro-i2i model"),
   enhancePrompt: z
@@ -121,6 +122,14 @@ export class DecartImageTool extends StructuredTool {
     const { prompt, orientation, seed, imageUrl } = input;
     const resolution = input.resolution ?? "720p";
     const enhancePrompt = input.enhancePrompt ?? true;
+
+    // Validate configuration
+    if (imageUrl && orientation) {
+      throw new Error(
+        "Invalid configuration: 'orientation' is only supported for text-to-image (t2i) mode. " +
+        "Remove 'orientation' when using 'imageUrl' for image-to-image editing."
+      );
+    }
 
     try {
       // Choose endpoint based on whether we have source image

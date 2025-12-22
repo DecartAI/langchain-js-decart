@@ -1,13 +1,11 @@
 import { describe, it, expect, beforeAll } from "@jest/globals";
 import { DecartImageTool } from "../../src/tools/image.js";
 
-// Skip entire suite if no API key
-const DECART_API_KEY = process.env.DECART_API_KEY;
-
-(DECART_API_KEY ? describe : describe.skip)("DecartImageTool Integration", () => {
+describe("DecartImageTool Integration", () => {
   let tool: DecartImageTool;
 
   beforeAll(() => {
+    // Will throw if DECART_API_KEY is not set
     tool = new DecartImageTool();
   });
 

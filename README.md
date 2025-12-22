@@ -1,11 +1,11 @@
-# @langchain/decart
+# @decart-ai/langchain
 
 LangChain.js integration for [Decart AI](https://decart.ai) - Image Generation and Editing.
 
 ## Installation
 
 ```bash
-npm install @langchain/decart @langchain/core
+npm install @decart-ai/langchain @langchain/core
 ```
 
 ## Setup
@@ -25,7 +25,7 @@ const tool = new DecartImageTool({ apiKey: "your-api-key" });
 ## Quick Start
 
 ```typescript
-import { DecartImageTool } from "@langchain/decart";
+import { DecartImageTool } from "@decart-ai/langchain";
 
 const tool = new DecartImageTool();
 
@@ -46,23 +46,26 @@ const editedImage = await tool.invoke({
 ## Using with LangChain Agents
 
 ```typescript
-import { ChatOpenAI } from "@langchain/openai";
-import { createReactAgent } from "@langchain/langgraph/prebuilt";
-import { DecartImageTool } from "@langchain/decart";
+import { ChatAnthropic } from "@langchain/anthropic";
+import { HumanMessage } from "@langchain/core/messages";
+import { DecartImageTool } from "@decart-ai/langchain";
 
-const llm = new ChatOpenAI({ model: "gpt-4o-mini" });
-const tools = [new DecartImageTool()];
+const llm = new ChatAnthropic({ model: "claude-sonnet-4-20250514" });
+const tool = new DecartImageTool();
 
-const agent = createReactAgent({ llm, tools });
+// Bind the tool to the model
+const llmWithTools = llm.bindTools([tool]);
 
-const result = await agent.invoke({
-  messages: [
-    {
-      role: "user",
-      content: "Generate an image of a futuristic city at night",
-    },
-  ],
-});
+// Ask the model to generate an image
+const response = await llmWithTools.invoke([
+  new HumanMessage("Generate an image of a futuristic city at night"),
+]);
+
+// Execute the tool call if present
+if (response.tool_calls?.length > 0) {
+  const result = await tool.invoke(response.tool_calls[0].args);
+  console.log("Generated image:", result);
+}
 ```
 
 ## DecartImageTool
@@ -75,23 +78,22 @@ Generate or edit images using Decart AI. Returns base64-encoded PNG images.
 | --------------- | --------------------------- | ------------------------------------ |
 | `prompt`        | `string`                    | Text description or edit instruction |
 | `resolution`    | `"480p" \| "720p"`          | Output resolution (default: "720p")  |
-| `orientation`   | `"landscape" \| "portrait"` | Output orientation                   |
+| `orientation`   | `"landscape" \| "portrait"` | Output orientation (t2i only)        |
 | `seed`          | `number`                    | Random seed for reproducibility      |
 | `imageUrl`      | `string`                    | Source image URL for i2i editing     |
 | `enhancePrompt` | `boolean`                   | Auto-enhance prompt (default: true)  |
 
 ### Models
 
-- `lucy-pro-t2i` - Text-to-image (default)
-- `lucy-pro-i2i` - Image-to-image (when imageUrl provided)
+- `lucy-pro-t2i` - Text-to-image (used when no imageUrl provided)
+- `lucy-pro-i2i` - Image-to-image (used when imageUrl provided)
 
 ### Constructor Options
 
-| Option         | Type     | Description                              |
-| -------------- | -------- | ---------------------------------------- |
-| `apiKey`       | `string` | Decart API key (or use DECART_API_KEY)   |
-| `baseUrl`      | `string` | Custom API base URL                      |
-| `defaultModel` | `string` | Default model (default: "lucy-pro-t2i")  |
+| Option    | Type     | Description                            |
+| --------- | -------- | -------------------------------------- |
+| `apiKey`  | `string` | Decart API key (or use DECART_API_KEY) |
+| `baseUrl` | `string` | Custom API base URL                    |
 
 ## API Reference
 

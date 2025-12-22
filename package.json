@@ -1,5 +1,5 @@
 {
-  "name": "@langchain/decart",
+  "name": "@decart-ai/langchain",
   "version": "0.1.0",
   "description": "LangChain.js integration for Decart AI - Image, Video, and Realtime Video Generation",
   "author": "Decart AI",
@@ -17,11 +17,6 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
-    "./tools": {
-      "types": "./dist/tools/index.d.ts",
-      "import": "./dist/tools/index.js",
-      "require": "./dist/tools/index.cjs"
-    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -31,7 +26,6 @@
   ],
   "scripts": {
     "build": "tsup",
-    "test": "jest",
     "test:unit": "jest tests/unit",
     "test:integration": "jest tests/integration",
     "lint": "eslint src/",
