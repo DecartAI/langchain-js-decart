@@ -1,11 +1,11 @@
-# @decart-ai/langchain
+# @decartai/langchain
 
 LangChain.js integration for [Decart AI](https://decart.ai) - Image Generation and Editing.
 
 ## Installation
 
 ```bash
-npm install @decart-ai/langchain @langchain/core
+npm install @decartai/langchain @langchain/core
 ```
 
 ## Setup
@@ -25,7 +25,7 @@ const tool = new DecartImageTool({ apiKey: "your-api-key" });
 ## Quick Start
 
 ```typescript
-import { DecartImageTool } from "@decart-ai/langchain";
+import { DecartImageTool } from "@decartai/langchain";
 
 const tool = new DecartImageTool();
 
@@ -48,7 +48,7 @@ const editedImage = await tool.invoke({
 ```typescript
 import { ChatAnthropic } from "@langchain/anthropic";
 import { HumanMessage } from "@langchain/core/messages";
-import { DecartImageTool } from "@decart-ai/langchain";
+import { DecartImageTool } from "@decartai/langchain";
 
 const llm = new ChatAnthropic({ model: "claude-sonnet-4-20250514" });
 const tool = new DecartImageTool();

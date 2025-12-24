@@ -1,5 +1,5 @@
 /**
- * @decart-ai/langchain
+ * @decartai/langchain
  *
  * LangChain.js integration for Decart AI - Image Generation and Editing.
  *
@@ -9,7 +9,7 @@
  *
  * @example
  * ```typescript
- * import { DecartImageTool } from "@decart-ai/langchain";
+ * import { DecartImageTool } from "@decartai/langchain";
  *
  * const tool = new DecartImageTool();
  *
