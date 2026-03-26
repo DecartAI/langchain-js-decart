@@ -1,6 +1,6 @@
 {
 	"name": "@decartai/langchain",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "LangChain.js integration for Decart AI - Image, Video, and Realtime Video Generation",
 	"author": "Decart AI",
 	"license": "MIT",
