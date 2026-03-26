@@ -29,15 +29,11 @@ export interface DecartImageToolParams extends ToolParams {
 const DecartImageInputSchema = z.object({
   prompt: z
     .string()
-    .describe("Text description of the image to generate or edit instructions"),
+    .describe("Edit instructions describing how to transform the image"),
   resolution: z
     .enum(["480p", "720p"])
     .optional()
     .describe("Output resolution (default: 720p)"),
-  orientation: z
-    .enum(["landscape", "portrait"])
-    .optional()
-    .describe("Output orientation"),
   seed: z
     .number()
     .optional()
@@ -45,8 +41,7 @@ const DecartImageInputSchema = z.object({
   imageUrl: z
     .string()
     .url("imageUrl must be a valid URL")
-    .optional()
-    .describe("Source image URL for image-to-image editing. If provided, uses lucy-pro-i2i model"),
+    .describe("Source image URL for image-to-image editing"),
   enhancePrompt: z
     .boolean()
     .optional()
@@ -56,22 +51,13 @@ const DecartImageInputSchema = z.object({
 type DecartImageInput = z.infer<typeof DecartImageInputSchema>;
 
 /**
- * Tool for generating and editing images using Decart AI.
+ * Tool for editing images using Decart AI (lucy-pro-i2i).
  *
- * Supports two modes:
- * - Text-to-Image (lucy-pro-t2i): Generate images from text descriptions
- * - Image-to-Image (lucy-pro-i2i): Edit/transform existing images with text prompts
+ * Transforms existing images using text prompts.
  *
  * @example
  * ```typescript
- * // Text-to-image
  * const tool = new DecartImageTool({ apiKey: "..." });
- * const result = await tool.invoke({
- *   prompt: "A serene mountain landscape at sunset",
- *   resolution: "720p"
- * });
- *
- * // Image-to-image
  * const result = await tool.invoke({
  *   prompt: "Change the sky to sunset colors",
  *   imageUrl: "https://example.com/image.jpg"
@@ -96,7 +82,7 @@ export class DecartImageTool extends StructuredTool {
   name = "decart_image_generator";
 
   description =
-    "Generate or edit images using Decart AI. For text-to-image, provide a prompt. For image editing, also provide an imageUrl. Returns a base64 data URL of the generated image.";
+    "Edit images using Decart AI. Provide a prompt describing the edit and an imageUrl of the source image. Returns a base64 data URL of the edited image.";
 
   schema = DecartImageInputSchema;
 
@@ -119,23 +105,12 @@ export class DecartImageTool extends StructuredTool {
     input: DecartImageInput,
     _runManager?: CallbackManagerForToolRun
   ): Promise<string> {
-    const { prompt, orientation, seed, imageUrl } = input;
+    const { prompt, seed, imageUrl } = input;
     const resolution = input.resolution ?? "720p";
     const enhancePrompt = input.enhancePrompt ?? true;
 
-    // Validate configuration
-    if (imageUrl && orientation) {
-      throw new Error(
-        "Invalid configuration: 'orientation' is only supported for text-to-image (t2i) mode. " +
-        "Remove 'orientation' when using 'imageUrl' for image-to-image editing."
-      );
-    }
-
     try {
-      // Choose endpoint based on whether we have source image
-      const endpoint = imageUrl
-        ? `${this.baseUrl}/v1/generate/lucy-pro-i2i`
-        : `${this.baseUrl}/v1/generate/lucy-pro-t2i`;
+      const endpoint = `${this.baseUrl}/v1/generate/lucy-pro-i2i`;
 
       // Build form data
       const formData = new FormData();
@@ -143,21 +118,15 @@ export class DecartImageTool extends StructuredTool {
       if (resolution) formData.append("resolution", resolution);
       if (seed !== undefined) formData.append("seed", String(seed));
 
-      if (imageUrl) {
-        // i2i mode - fetch source image and add to form
-        const imageResponse = await fetch(imageUrl);
-        if (!imageResponse.ok) {
-          throw new Error(`Failed to fetch source image: ${imageResponse.statusText}`);
-        }
-        const imageBlob = await imageResponse.blob();
-        formData.append("data", imageBlob);
-        // enhance_prompt only applies to i2i
-        if (enhancePrompt !== undefined) {
-          formData.append("enhance_prompt", String(enhancePrompt));
-        }
-      } else {
-        // t2i mode - orientation only applies here
-        if (orientation) formData.append("orientation", orientation);
+      // Fetch source image and add to form
+      const imageResponse = await fetch(imageUrl);
+      if (!imageResponse.ok) {
+        throw new Error(`Failed to fetch source image: ${imageResponse.statusText}`);
+      }
+      const imageBlob = await imageResponse.blob();
+      formData.append("data", imageBlob);
+      if (enhancePrompt !== undefined) {
+        formData.append("enhance_prompt", String(enhancePrompt));
       }
 
       // Call the Decart API

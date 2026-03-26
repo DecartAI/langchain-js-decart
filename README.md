@@ -1,6 +1,6 @@
 # @decartai/langchain
 
-LangChain.js integration for [Decart AI](https://decart.ai) - Image Generation and Editing.
+LangChain.js integration for [Decart AI](https://decart.ai) - Image Editing.
 
 ## Installation
 
@@ -28,19 +28,14 @@ const tool = new DecartImageTool({ apiKey: "your-api-key" });
 import { DecartImageTool } from "@decartai/langchain";
 
 const tool = new DecartImageTool();
-
-// Text-to-image generation
-const image = await tool.invoke({
-  prompt: "A serene mountain landscape at sunset",
-  resolution: "720p",
-});
-// Returns: data:image/png;base64,...
+const exampleImageUrl = "https://picsum.photos/id/10/480/360.jpg";
 
 // Image-to-image editing
 const editedImage = await tool.invoke({
   prompt: "Change the sky to aurora borealis",
-  imageUrl: "https://example.com/original.jpg",
+  imageUrl: exampleImageUrl,
 });
+// Returns: data:image/png;base64,...
 ```
 
 ## Using with LangChain Agents
@@ -52,41 +47,42 @@ import { DecartImageTool } from "@decartai/langchain";
 
 const llm = new ChatAnthropic({ model: "claude-sonnet-4-20250514" });
 const tool = new DecartImageTool();
+const exampleImageUrl = "https://picsum.photos/id/10/480/360.jpg";
 
 // Bind the tool to the model
 const llmWithTools = llm.bindTools([tool]);
 
-// Ask the model to generate an image
+// Ask the model to edit an image
 const response = await llmWithTools.invoke([
-  new HumanMessage("Generate an image of a futuristic city at night"),
+  new HumanMessage(
+    `Edit this image to add a futuristic city skyline at night: ${exampleImageUrl}`
+  ),
 ]);
 
 // Execute the tool call if present
 if (response.tool_calls?.length > 0) {
   const result = await tool.invoke(response.tool_calls[0].args);
-  console.log("Generated image:", result);
+  console.log("Edited image:", result);
 }
 ```
 
 ## DecartImageTool
 
-Generate or edit images using Decart AI. Returns base64-encoded PNG images.
+Edit images using Decart AI. Returns base64-encoded PNG images.
 
 ### Parameters
 
-| Parameter       | Type                        | Description                          |
-| --------------- | --------------------------- | ------------------------------------ |
-| `prompt`        | `string`                    | Text description or edit instruction |
-| `resolution`    | `"480p" \| "720p"`          | Output resolution (default: "720p")  |
-| `orientation`   | `"landscape" \| "portrait"` | Output orientation (t2i only)        |
-| `seed`          | `number`                    | Random seed for reproducibility      |
-| `imageUrl`      | `string`                    | Source image URL for i2i editing     |
-| `enhancePrompt` | `boolean`                   | Auto-enhance prompt (default: true)  |
+| Parameter       | Type               | Description                          |
+| --------------- | ------------------ | ------------------------------------ |
+| `prompt`        | `string`           | Edit instructions for the image      |
+| `imageUrl`      | `string`           | Source image URL (required)           |
+| `resolution`    | `"480p" \| "720p"` | Output resolution (default: "720p")  |
+| `seed`          | `number`           | Random seed for reproducibility      |
+| `enhancePrompt` | `boolean`          | Auto-enhance prompt (default: true)  |
 
 ### Models
 
-- `lucy-pro-t2i` - Text-to-image (used when no imageUrl provided)
-- `lucy-pro-i2i` - Image-to-image (used when imageUrl provided)
+- `lucy-pro-i2i` - Image-to-image editing
 
 ### Constructor Options
 

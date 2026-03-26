@@ -1,25 +1,20 @@
 /**
  * @decartai/langchain
  *
- * LangChain.js integration for Decart AI - Image Generation and Editing.
+ * LangChain.js integration for Decart AI - Image Editing.
  *
- * This package provides LangChain tools for:
- * - Text-to-image generation
- * - Image-to-image editing
+ * This package provides a LangChain tool for image-to-image editing.
  *
  * @example
  * ```typescript
  * import { DecartImageTool } from "@decartai/langchain";
  *
  * const tool = new DecartImageTool();
+ * const exampleImageUrl = "https://picsum.photos/id/10/480/360.jpg";
  *
- * // Text-to-image generation
- * const image = await tool.invoke({ prompt: "A sunset over mountains" });
- *
- * // Image-to-image editing
  * const edited = await tool.invoke({
  *   prompt: "Add a rainbow",
- *   imageUrl: "https://example.com/image.jpg"
+ *   imageUrl: exampleImageUrl
  * });
  * ```
  *

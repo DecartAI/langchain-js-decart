@@ -2,9 +2,9 @@
  * Demo: Using DecartImageTool with Claude
  *
  * This example shows a multi-step pipeline:
- * 1. Claude decides to generate an image using the DecartImageTool
- * 2. The generated image is passed back to Claude
- * 3. Claude describes what it sees in the generated image
+ * 1. Claude decides to edit an image using the DecartImageTool
+ * 2. The edited image is passed back to Claude
+ * 3. Claude describes what it sees in the edited image
  *
  * Setup:
  * 1. Copy .env.example to .env and fill in your API keys
@@ -17,8 +17,9 @@ import { HumanMessage } from "@langchain/core/messages";
 import { DecartImageTool } from "../src/tools/image.js";
 
 async function main() {
-  // Create the Decart image generation tool
-  const imageGeneratorTool = new DecartImageTool();
+  // Create the Decart image editing tool
+  const imageTool = new DecartImageTool();
+  const exampleImageUrl = "https://picsum.photos/id/10/480/360.jpg";
 
   // Create Claude model with tool binding
   const llm = new ChatAnthropic({
@@ -27,14 +28,14 @@ async function main() {
   });
 
   // Bind the tool to the model
-  const llmWithTools = llm.bindTools([imageGeneratorTool]);
+  const llmWithTools = llm.bindTools([imageTool]);
 
-  // Step 1: Ask Claude to generate an image
-  console.log("=== Step 1: Asking Claude to generate an image ===\n");
+  // Step 1: Ask Claude to edit an image
+  console.log("=== Step 1: Asking Claude to edit an image ===\n");
 
   const response = await llmWithTools.invoke([
     new HumanMessage(
-      "Generate an image of a beautiful sunset over mountains with orange and purple sky. Use the decart_image_generator tool."
+      `Edit this image to add a beautiful sunset with orange and purple sky: ${exampleImageUrl}. Use the decart_image_generator tool.`
     ),
   ]);
 
@@ -48,16 +49,16 @@ async function main() {
 
     for (const toolCall of response.tool_calls) {
       if (toolCall.name === "decart_image_generator") {
-        console.log("Generating image with prompt:", toolCall.args.prompt);
+        console.log("Editing image with prompt:", toolCall.args.prompt);
 
-        const result = await imageGeneratorTool.invoke(toolCall.args);
+        const result = await imageTool.invoke(toolCall.args);
 
         if (result.startsWith("data:image")) {
           generatedImageBase64 = result;
           const base64Data = result.split(",")[1];
           const buffer = Buffer.from(base64Data, "base64");
-          writeFileSync("generated-image.png", buffer);
-          console.log("Image saved to: generated-image.png");
+          writeFileSync("edited-image.png", buffer);
+          console.log("Image saved to: edited-image.png");
         }
       }
     }
@@ -66,7 +67,7 @@ async function main() {
   // Step 3: Pass the image back to Claude for description
   if (generatedImageBase64) {
     console.log(
-      "\n=== Step 3: Asking Claude to describe the generated image ===\n"
+      "\n=== Step 3: Asking Claude to describe the edited image ===\n"
     );
 
     // Send image to Claude for description
@@ -81,13 +82,13 @@ async function main() {
           },
           {
             type: "text",
-            text: "Please describe this image in detail. What do you see? Does it match what was requested (a beautiful sunset over mountains with orange and purple sky)?",
+            text: "Please describe this image in detail. What do you see? Does it look like a sunset with orange and purple sky was added?",
           },
         ],
       }),
     ]);
 
-    console.log("Claude's description of the generated image:\n");
+    console.log("Claude's description of the edited image:\n");
     console.log(descriptionResponse.content);
   }
 
