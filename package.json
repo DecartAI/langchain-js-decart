@@ -74,8 +74,8 @@
 		"type": "git",
 		"url": "https://github.com/DecartAI/langchain-js-decart"
 	},
-	"bugs": {
-		"url": "https://github.com/DecartAI/langchain-decart-js/issues"
-	},
-	"homepage": "https://github.com/DecartAI/langchain-decart-js#readme"
+ 	"bugs": {
+ 		"url": "https://github.com/DecartAI/langchain-js-decart/issues"
+ 	},
+ 	"homepage": "https://github.com/DecartAI/langchain-js-decart#readme"
 }
