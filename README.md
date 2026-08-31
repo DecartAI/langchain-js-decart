@@ -25,15 +25,19 @@ const tool = new DecartImageTool({ apiKey: "your-api-key" });
 ## Quick Start
 
 ```typescript
+import { readFile } from "node:fs/promises";
 import { DecartImageTool } from "@decartai/langchain";
 
 const tool = new DecartImageTool();
-const exampleImageUrl = "https://picsum.photos/id/10/480/360.jpg";
+
+// Provide the source image as base64 (or a data: URL). Read/fetch it yourself —
+// the tool does not fetch remote URLs.
+const image = (await readFile("./photo.jpg")).toString("base64");
 
 // Image-to-image editing
 const editedImage = await tool.invoke({
   prompt: "Change the sky to aurora borealis",
-  imageUrl: exampleImageUrl,
+  image,
 });
 // Returns: data:image/png;base64,...
 ```
@@ -43,25 +47,27 @@ const editedImage = await tool.invoke({
 ```typescript
 import { ChatAnthropic } from "@langchain/anthropic";
 import { HumanMessage } from "@langchain/core/messages";
+import { readFile } from "node:fs/promises";
 import { DecartImageTool } from "@decartai/langchain";
 
 const llm = new ChatAnthropic({ model: "claude-sonnet-4-20250514" });
 const tool = new DecartImageTool();
-const exampleImageUrl = "https://picsum.photos/id/10/480/360.jpg";
 
 // Bind the tool to the model
 const llmWithTools = llm.bindTools([tool]);
 
-// Ask the model to edit an image
+// The tool takes the source image as base64 — read/fetch it yourself, since the
+// tool does not fetch remote URLs.
+const image = (await readFile("./photo.jpg")).toString("base64");
+
+// Let the model decide the edit prompt, then supply the resolved image bytes
 const response = await llmWithTools.invoke([
-  new HumanMessage(
-    `Edit this image to add a futuristic city skyline at night: ${exampleImageUrl}`
-  ),
+  new HumanMessage("Edit my photo to add a futuristic city skyline at night."),
 ]);
 
-// Execute the tool call if present
+// Execute the tool call if present, injecting the image bytes into the args
 if (response.tool_calls?.length > 0) {
-  const result = await tool.invoke(response.tool_calls[0].args);
+  const result = await tool.invoke({ ...response.tool_calls[0].args, image });
   console.log("Edited image:", result);
 }
 ```
@@ -75,7 +81,7 @@ Edit images using Decart AI. Returns base64-encoded PNG images.
 | Parameter       | Type               | Description                          |
 | --------------- | ------------------ | ------------------------------------ |
 | `prompt`        | `string`           | Edit instructions for the image      |
-| `imageUrl`      | `string`           | Source image URL (required)           |
+| `image`         | `string`           | Source image as base64 or data: URL (required) |
 | `resolution`    | `"480p" \| "720p"` | Output resolution (default: "720p")  |
 | `seed`          | `number`           | Random seed for reproducibility      |
 | `enhancePrompt` | `boolean`          | Auto-enhance prompt (default: true)  |

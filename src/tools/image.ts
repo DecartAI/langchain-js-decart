@@ -38,10 +38,12 @@ const DecartImageInputSchema = z.object({
     .number()
     .optional()
     .describe("Random seed for reproducible results"),
-  imageUrl: z
+  image: z
     .string()
-    .url("imageUrl must be a valid URL")
-    .describe("Source image URL for image-to-image editing"),
+    .describe(
+      'Source image as base64, or a data: URL (e.g. "data:image/png;base64,..."). ' +
+        "Fetch remote images yourself and pass the bytes — this tool does not fetch URLs."
+    ),
   enhancePrompt: z
     .boolean()
     .optional()
@@ -60,7 +62,7 @@ type DecartImageInput = z.infer<typeof DecartImageInputSchema>;
  * const tool = new DecartImageTool({ apiKey: "..." });
  * const result = await tool.invoke({
  *   prompt: "Change the sky to sunset colors",
- *   imageUrl: "https://example.com/image.jpg"
+ *   image: "data:image/png;base64,iVBORw0KGgo..."
  * });
  * ```
  */
@@ -82,7 +84,7 @@ export class DecartImageTool extends StructuredTool {
   name = "decart_image_generator";
 
   description =
-    "Edit images using Decart AI. Provide a prompt describing the edit and an imageUrl of the source image. Returns a base64 data URL of the edited image.";
+    "Edit images using Decart AI. Provide a prompt describing the edit and the source image as base64 (or a data: URL). Returns a base64 data URL of the edited image.";
 
   schema = DecartImageInputSchema;
 
@@ -105,7 +107,7 @@ export class DecartImageTool extends StructuredTool {
     input: DecartImageInput,
     _runManager?: CallbackManagerForToolRun
   ): Promise<string> {
-    const { prompt, seed, imageUrl } = input;
+    const { prompt, seed, image } = input;
     const resolution = input.resolution ?? "720p";
     const enhancePrompt = input.enhancePrompt ?? true;
 
@@ -118,12 +120,15 @@ export class DecartImageTool extends StructuredTool {
       if (resolution) formData.append("resolution", resolution);
       if (seed !== undefined) formData.append("seed", String(seed));
 
-      // Fetch source image and add to form
-      const imageResponse = await fetch(imageUrl);
-      if (!imageResponse.ok) {
-        throw new Error(`Failed to fetch source image: ${imageResponse.statusText}`);
+      // Decode the caller-supplied image (base64, or a data: URL) into bytes.
+      // This tool intentionally does NOT fetch remote URLs: an agent-driven tool
+      // that fetched an arbitrary URL from the host would be an SSRF vector.
+      // Resolve remote images yourself and pass the bytes.
+      const imageBase64 = image.startsWith("data:") ? (image.split(",", 2)[1] ?? "") : image;
+      if (!imageBase64) {
+        throw new Error("image must be non-empty base64 or a data: URL");
       }
-      const imageBlob = await imageResponse.blob();
+      const imageBlob = new Blob([Buffer.from(imageBase64, "base64")]);
       formData.append("data", imageBlob);
       if (enhancePrompt !== undefined) {
         formData.append("enhance_prompt", String(enhancePrompt));
