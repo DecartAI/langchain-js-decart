@@ -8,29 +8,27 @@ import { DecartImageTool } from "../../src/tools/image.js";
 
 const MOCK_API_KEY = "test-api-key";
 const MOCK_PROMPT = "Change the sky to sunset colors";
-const MOCK_IMAGE_URL = "https://example.com/image.jpg";
+// Source image provided as base64 (decodes to the 12 bytes of "source-image").
+const MOCK_IMAGE_B64 = Buffer.from("source-image").toString("base64");
 const MOCK_IMAGE_DATA = new Uint8Array([137, 80, 78, 71]); // PNG header bytes
+const API_ENDPOINT = "https://api.decart.ai/v1/generate/lucy-pro-i2i";
 
 describe("DecartImageTool", () => {
   const originalEnv = process.env;
-  const mockImageBlob = new Blob(["source-image"], { type: "image/jpeg" });
 
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...originalEnv, DECART_API_KEY: MOCK_API_KEY };
 
-    // Default mock: first call fetches source image, second call is API
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        blob: () => Promise.resolve(mockImageBlob),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        arrayBuffer: () => Promise.resolve(MOCK_IMAGE_DATA.buffer),
-        headers: new Headers({ "content-type": "image/png" }),
-        text: () => Promise.resolve(""),
-      } as Response);
+    // The tool makes exactly one fetch: the Decart API call. It no longer
+    // fetches the source image — that would be an SSRF vector for an
+    // agent-driven tool.
+    mockFetch.mockResolvedValue({
+      ok: true,
+      arrayBuffer: () => Promise.resolve(MOCK_IMAGE_DATA.buffer),
+      headers: new Headers({ "content-type": "image/png" }),
+      text: () => Promise.resolve(""),
+    } as Response);
   });
 
   afterEach(() => {
@@ -66,7 +64,7 @@ describe("DecartImageTool", () => {
       expect(schema.shape.prompt).toBeDefined();
       expect(schema.shape.resolution).toBeDefined();
       expect(schema.shape.seed).toBeDefined();
-      expect(schema.shape.imageUrl).toBeDefined();
+      expect(schema.shape.image).toBeDefined();
     });
 
     it("should have lc_secrets getter", () => {
@@ -85,43 +83,76 @@ describe("DecartImageTool", () => {
       const tool = new DecartImageTool();
       await tool.invoke({
         prompt: MOCK_PROMPT,
-        imageUrl: MOCK_IMAGE_URL,
+        image: MOCK_IMAGE_B64,
       });
 
-      // First call should be to fetch the source image
-      expect(mockFetch.mock.calls[0][0]).toBe(MOCK_IMAGE_URL);
-
-      // Second call should be to the i2i endpoint
-      const [url, options] = mockFetch.mock.calls[1] as [string, RequestInit];
-      expect(url).toBe("https://api.decart.ai/v1/generate/lucy-pro-i2i");
+      // The only fetch is the API call — no source-image fetch.
+      const [url, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe(API_ENDPOINT);
       expect(options.method).toBe("POST");
       expect((options.headers as Record<string, string>)["X-API-KEY"]).toBe(MOCK_API_KEY);
     });
 
-    it("should include data blob in FormData", async () => {
+    it("should not fetch a source-image URL (SSRF guard)", async () => {
+      const tool = new DecartImageTool();
+      // Even when the image string looks like a URL, it is treated as opaque
+      // bytes, never fetched.
+      await tool.invoke({
+        prompt: MOCK_PROMPT,
+        image: "https://internal.example/secret",
+      });
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockFetch.mock.calls[0][0]).toBe(API_ENDPOINT);
+    });
+
+    it("should decode the base64 image into the data blob", async () => {
       const tool = new DecartImageTool();
       await tool.invoke({
         prompt: MOCK_PROMPT,
-        imageUrl: MOCK_IMAGE_URL,
+        image: MOCK_IMAGE_B64,
       });
 
-      const [, options] = mockFetch.mock.calls[1] as [string, RequestInit];
+      const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
       const formData = options.body as FormData;
+      const data = formData.get("data") as Blob;
 
-      expect(formData.get("data")).toBeDefined();
+      expect(data).toBeInstanceOf(Blob);
+      expect(data.size).toBe("source-image".length); // decoded, not the base64 string
       expect(formData.get("prompt")).toBe(MOCK_PROMPT);
+    });
+
+    it("should accept a data: URL", async () => {
+      const tool = new DecartImageTool();
+      await tool.invoke({
+        prompt: MOCK_PROMPT,
+        image: `data:image/png;base64,${MOCK_IMAGE_B64}`,
+      });
+
+      const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const formData = options.body as FormData;
+      const data = formData.get("data") as Blob;
+      expect(data.size).toBe("source-image".length);
+    });
+
+    it("should reject an empty image", async () => {
+      const tool = new DecartImageTool();
+      await expect(
+        tool.invoke({ prompt: MOCK_PROMPT, image: "" })
+      ).rejects.toThrow();
+      expect(mockFetch).not.toHaveBeenCalled();
     });
 
     it("should include optional parameters when provided", async () => {
       const tool = new DecartImageTool();
       await tool.invoke({
         prompt: MOCK_PROMPT,
-        imageUrl: MOCK_IMAGE_URL,
+        image: MOCK_IMAGE_B64,
         resolution: "480p",
         seed: 42,
       });
 
-      const [, options] = mockFetch.mock.calls[1] as [string, RequestInit];
+      const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
       const formData = options.body as FormData;
 
       expect(formData.get("resolution")).toBe("480p");
@@ -132,11 +163,11 @@ describe("DecartImageTool", () => {
       const tool = new DecartImageTool();
       await tool.invoke({
         prompt: MOCK_PROMPT,
-        imageUrl: MOCK_IMAGE_URL,
+        image: MOCK_IMAGE_B64,
         enhancePrompt: false,
       });
 
-      const [, options] = mockFetch.mock.calls[1] as [string, RequestInit];
+      const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
       const formData = options.body as FormData;
 
       expect(formData.get("enhance_prompt")).toBe("false");
@@ -146,7 +177,7 @@ describe("DecartImageTool", () => {
       const tool = new DecartImageTool();
       const result = await tool.invoke({
         prompt: MOCK_PROMPT,
-        imageUrl: MOCK_IMAGE_URL,
+        image: MOCK_IMAGE_B64,
       });
 
       expect(result).toMatch(/^data:image\/png;base64,/);
@@ -160,48 +191,26 @@ describe("DecartImageTool", () => {
       });
       await tool.invoke({
         prompt: MOCK_PROMPT,
-        imageUrl: MOCK_IMAGE_URL,
+        image: MOCK_IMAGE_B64,
       });
 
-      const [url] = mockFetch.mock.calls[1] as [string, RequestInit];
+      const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
       expect(url).toBe(`${customBaseUrl}/v1/generate/lucy-pro-i2i`);
-    });
-
-    it("should throw error if source image fetch fails", async () => {
-      mockFetch.mockReset();
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        statusText: "Not Found",
-      } as Response);
-
-      const tool = new DecartImageTool();
-      await expect(
-        tool.invoke({
-          prompt: "Edit this",
-          imageUrl: "https://example.com/missing.jpg",
-        })
-      ).rejects.toThrow("Failed to fetch source image");
     });
   });
 
   describe("error handling", () => {
     it("should throw on API error", async () => {
       mockFetch.mockReset();
-      // Source image fetch succeeds
-      mockFetch
-        .mockResolvedValueOnce({
-          ok: true,
-          blob: () => Promise.resolve(mockImageBlob),
-        } as Response)
-        .mockResolvedValueOnce({
-          ok: false,
-          status: 401,
-          text: () => Promise.resolve("Unauthorized"),
-        } as Response);
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: () => Promise.resolve("Unauthorized"),
+      } as Response);
 
       const tool = new DecartImageTool();
       await expect(
-        tool.invoke({ prompt: MOCK_PROMPT, imageUrl: MOCK_IMAGE_URL })
+        tool.invoke({ prompt: MOCK_PROMPT, image: MOCK_IMAGE_B64 })
       ).rejects.toThrow("Decart API error (401): Unauthorized");
     });
 
@@ -211,7 +220,7 @@ describe("DecartImageTool", () => {
 
       const tool = new DecartImageTool();
       await expect(
-        tool.invoke({ prompt: MOCK_PROMPT, imageUrl: MOCK_IMAGE_URL })
+        tool.invoke({ prompt: MOCK_PROMPT, image: MOCK_IMAGE_B64 })
       ).rejects.toThrow("Decart image generation failed: Network error");
     });
   });

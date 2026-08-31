@@ -10,11 +10,10 @@
  * import { DecartImageTool } from "@decartai/langchain";
  *
  * const tool = new DecartImageTool();
- * const exampleImageUrl = "https://picsum.photos/id/10/480/360.jpg";
  *
  * const edited = await tool.invoke({
  *   prompt: "Add a rainbow",
- *   imageUrl: exampleImageUrl
+ *   image: "data:image/png;base64,iVBORw0KGgo..."
  * });
  * ```
  *
